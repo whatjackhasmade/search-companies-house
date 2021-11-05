@@ -44,29 +44,30 @@ async function scrapeData() {
       const data = { title, companyId };
 
       // Populate companies array with company data
-			await prisma.company.create({
-				data
-			})
+      try {
+
+        await prisma.company.create({
+          data
+        })
+      } catch(e) {
+      }
     });
-  } catch (err) {
-    console.error(err);
-  }
-}
 
-// Invoke the above function
-(async () => {
-	const count = Array.from({ length: 20 });
-
-	for (const item of count) {
-		await scrapeData();
-
-		const second = randomSecond(10, 120);
+    const second = randomSecond(1, 40);
 		const time = second * 1000;
 
 		console.log(`Waiting for ${second} seconds`);
 
 		await sleep(time);
-	}
+  } catch (e) {
+  }
+}
 
-	await prisma.$disconnect()
+// Invoke the above function
+(() => {
+  const cron = require('node-cron');
+
+  cron.schedule('* * * * *', async () => {
+    await scrapeData();
+  });
 })();
