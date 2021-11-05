@@ -1,9 +1,10 @@
-// Loading the dependencies. We don't need pretty
-// because we shall not log html to the terminal
 const fetch = require("node-fetch");
 const cheerio = require("cheerio");
 const fs = require("fs");
 const faker = require("faker");
+
+const { PrismaClient } = require("@prisma/client")
+const prisma = new PrismaClient()
 
 function sleep(ms) {
   return new Promise(
@@ -11,7 +12,7 @@ function sleep(ms) {
   );
 }
 
-function randomMinute(min, max) { // min and max included
+function randomSecond(min, max) { // min and max included
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
 
@@ -34,18 +35,19 @@ async function scrapeData() {
     const companies = [];
 
     // Use .each method to loop through the li we selected
-    listItems.each((idx, el) => {
+    listItems.each(async (idx, el) => {
+			const title = el.children?.[0].data?.trim()?.replace(/^\s+|\s+$/g, '');
 			const href = el.attribs.href;
-			const number = /[^/]*$/.exec(href)?.[0];
+			const companyId = /[^/]*$/.exec(href)?.[0];
 
       // Object holding data for each country/jurisdiction
-      const company = number;
+      const data = { title, companyId };
 
       // Populate companies array with company data
-      companies.push(company);
+			await prisma.company.create({
+				data
+			})
     });
-
-		return companies;
   } catch (err) {
     console.error(err);
   }
@@ -55,34 +57,16 @@ async function scrapeData() {
 (async () => {
 	const count = Array.from({ length: 20 });
 
-	const all = count.map(() => {
-		const minute = randomMinute(5, 20);
-		const time = minute * 1000 * 60;
+	for (const item of count) {
+		await scrapeData();
 
-		console.log(`Waiting for ${minute} minutes`);
+		const second = randomSecond(10, 120);
+		const time = second * 1000;
 
-		return new Promise((resolve) => setTimeout(() => {
-			resolve(scrapeData());
-		}, time))
-	});
+		console.log(`Waiting for ${second} seconds`);
 
-	const resolved = await Promise.all(all);
+		await sleep(time);
+	}
 
-	const latest = resolved.flat();
-
-	fs.readFile('./list/found/all.json',  (err, data) => {
-		const json = JSON.parse(data)
-    json.push(...latest)
-
-		const unique = [...new Set(json)];
-
-		// Write companies array in companies.json file
-		fs.writeFile("./list/found/all.json", JSON.stringify(unique, null, 2), (err) => {
-				if (err) {
-					console.error(err);
-					return;
-				}
-				console.log("Successfully written data to file");
-			})
-		})
+	await prisma.$disconnect()
 })();
