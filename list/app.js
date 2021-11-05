@@ -5,6 +5,16 @@ const cheerio = require("cheerio");
 const fs = require("fs");
 const faker = require("faker");
 
+function sleep(ms) {
+  return new Promise(
+    resolve => setTimeout(resolve, ms)
+  );
+}
+
+function randomMinute(min, max) { // min and max included
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
 // Async function which scrapes the data
 async function scrapeData() {
 	const word = faker.random.word();
@@ -43,19 +53,31 @@ async function scrapeData() {
 
 // Invoke the above function
 (async () => {
-	const all = await Promise.allSettled(Array.from({ length: 200 },  async () =>  await scrapeData()));
-	const latest = all.map(({ value }) => value).flat();
+	const count = Array.from({ length: 20 });
 
-	console.log(latest);
+	const all = count.map(() => {
+		const minute = randomMinute(5, 20);
+		const time = minute * 1000 * 60;
 
-	fs.readFile('./found/all.json',  (err, data) => {
-    const json = JSON.parse(data)
+		console.log(`Waiting for ${minute} minutes`);
+
+		return new Promise((resolve) => setTimeout(() => {
+			resolve(scrapeData());
+		}, time))
+	});
+
+	const resolved = await Promise.all(all);
+
+	const latest = resolved.flat();
+
+	fs.readFile('./list/found/all.json',  (err, data) => {
+		const json = JSON.parse(data)
     json.push(...latest)
 
 		const unique = [...new Set(json)];
 
 		// Write companies array in companies.json file
-		fs.writeFile("./found/all.json", JSON.stringify(unique, null, 2), (err) => {
+		fs.writeFile("./list/found/all.json", JSON.stringify(unique, null, 2), (err) => {
 				if (err) {
 					console.error(err);
 					return;
@@ -63,5 +85,4 @@ async function scrapeData() {
 				console.log("Successfully written data to file");
 			})
 		})
-
 })();
